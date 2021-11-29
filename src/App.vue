@@ -1,26 +1,34 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+<router-view :user="requestedUserData" @userSelected="updateSelectedUser" @requestingUserData="assignToRequestedUserData" />
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
 
 export default {
-  name: 'App',
-  components: {
-    HelloWorld
+  name: "App",
+  data() {
+    return {
+      selectedUser: null,
+      requestedUserData: null,
+    }
+  },
+  methods: {
+    updateSelectedUser(emittedUser) {
+      this.selectedUser = emittedUser;
+    },
+    assignToRequestedUserData() {
+      this.requestedUserData = this.selectedUser;
+    }
   }
 }
+
 </script>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+html {
+  font-size: 100%;
+}
+body {
+  background-color: rgb(230, 230, 230);
 }
 </style>
