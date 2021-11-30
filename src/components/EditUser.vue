@@ -54,12 +54,12 @@
           />
 
           <router-link to="/">
-          <Button
-            class="height2p5 p-button-warning"
-            label="Cancel"
-            icon="pi pi-times"
-            iconPos="right"
-          />
+            <Button
+              class="height2p5 p-button-warning"
+              label="Cancel"
+              icon="pi pi-times"
+              iconPos="right"
+            />
           </router-link>
         </div>
       </div>
@@ -74,8 +74,7 @@
       </div>
       <div v-if="serverError">
         <p>
-          Unable to update the user - either no values were editted or an error has occured during server
-          communication.
+          {{ serverErrorMsg }}
         </p>
       </div>
     </template>
@@ -128,6 +127,7 @@ export default {
       showEmailIncorect: false,
       showTelephoneIncorect: false,
       serverError: false,
+      serverErrorMsg: null,
     };
   },
   methods: {
@@ -151,8 +151,12 @@ export default {
             this.$router.push("/");
           } else {
             this.serverError = true;
+            this.serverErrorMsg = 'Unable to edit the user - either no user data was editted or an error occured during server communication.'
           }
-        });
+        }).catch(() => {
+          this.serverError = true;
+          this.serverErrorMsg = 'Unable to carry out this action - server is not responding.';
+        })
       }
     },
     validateInput() {
@@ -163,17 +167,17 @@ export default {
       this.showTelephoneIncorect = false;
       this.serverError = false;
 
-      if (this.firstName === null) {
+      if (this.firstName === null || this.firstName === "") {
         this.missingFields.push("First Name");
       }
-      if (this.surname === null) {
+      if (this.surname === null || this.surname === "") {
         this.missingFields.push("Surname");
       }
       if (this.status === null) {
         this.missingFields.push("Status");
       }
 
-      if (this.email === null) {
+      if (this.email === null || this.email === "") {
         this.missingFields.push("Email");
       } else {
         const atIndex = this.email.indexOf("@");
@@ -195,19 +199,19 @@ export default {
         }
       }
 
-      this.missingFieldsMessage = "The following data is missing: ";
-      for (let i = 0; i < this.missingFields.length; i++) {
-        this.missingFieldsMessage += this.missingFields[i];
-        if (i < this.missingFields.length - 1) {
-          this.missingFieldsMessage += ", ";
-        } else if (i === this.missingFields.length - 1) {
-          this.missingFieldsMessage += ".";
-        }
-      }
-
       if (this.missingFields.length > 0) {
+        this.missingFieldsMessage = "The following data is missing: ";
+        for (let i = 0; i < this.missingFields.length; i++) {
+          this.missingFieldsMessage += this.missingFields[i];
+          if (i < this.missingFields.length - 1) {
+            this.missingFieldsMessage += ", ";
+          } else {
+            this.missingFieldsMessage += ".";
+          }
+        }
         this.showFieldsMissing = true;
       }
+
       if (
         this.missingFields.length > 0 ||
         this.showEmailIncorect === true ||
@@ -223,8 +227,4 @@ export default {
 </script>
 
 <style>
-.userCard {
-  width: 55rem;
-  margin: 5rem auto 0 auto;
-}
 </style>

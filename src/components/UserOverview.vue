@@ -154,13 +154,17 @@
     </template>
 
     <template id="overviewCardContent" #content>
+      <div v-if="serverError">
+        <p>
+          {{ serverErrorMsg }}
+        </p>
+      </div>
       <DataTable
         :value="users"
         v-model:selection="selectedUser"
         :lazy="true"
         :paginator="true"
         :rows="10"
-        ref="dt"
         :totalRecords="totalRecords"
         :loading="loading"
         @page="onPage($event)"
@@ -170,38 +174,13 @@
         dataKey="id"
         selectionMode="single"
       >
-        <Column field="id" header="Id" ref="id" :sortable="true" />
-        <Column
-          field="firstName"
-          header="First name"
-          ref="country.name"
-          :sortable="true"
-        />
-        <Column
-          field="surname"
-          header="Surname"
-          ref="company"
-          :sortable="true"
-        />
-        <Column
-          field="status"
-          header="Status"
-          ref="representative.name"
-          :sortable="true"
-        />
-        <Column field="email" header="Email" ref="company" :sortable="true" />
-        <Column
-          field="telephone"
-          header="Telephone"
-          ref="company"
-          :sortable="true"
-        />
-        <Column
-          field="creationDate"
-          header="Creation Date"
-          ref="company"
-          :sortable="true"
-        />
+        <Column field="id" header="Id" :sortable="true" />
+        <Column field="firstName" header="First name" :sortable="true" />
+        <Column field="surname" header="Surname" :sortable="true" />
+        <Column field="status" header="Status" :sortable="true" />
+        <Column field="email" header="Email" :sortable="true" />
+        <Column field="telephone" header="Telephone" :sortable="true" />
+        <Column field="creationDate" header="Creation Date" :sortable="true" />
       </DataTable>
     </template>
   </Card>
@@ -260,18 +239,17 @@ export default {
       },
       statuses: ["Any status", "Active", "Deactivated"],
       loading: false,
-      totalRecords: 0,
+      totalRecords: null,
       users: null,
       lazyParams: {},
       selectedUser: null,
       sortField: null,
       sortOrder: null,
-      thing: "hey theerreee",
+      serverError: false,
+      serverErrorMsg: null,
     };
   },
   mounted() {
-    // this.loading = true;
-
     this.lazyLoadFirstPage();
   },
   methods: {
@@ -285,29 +263,41 @@ export default {
         },
         body: JSON.stringify(this.lazyParams),
       })
-        .then((response) => response.json())
-        .then((data) => {
-          //here im just assigning the array of users that we got from the backend into 'this.users', but also im using array.map on that array so that I can overwrite the creationDate property of each user (to re-format it into dd-MM-yyyy format)
-          this.users = data[0].map((element) => {
-            return {
-              ...element,
-              creationDate:
-                element.creationDate.substring(8, 10) +
-                "-" +
-                element.creationDate.substring(5, 7) +
-                "-" +
-                element.creationDate.substring(0, 4),
-            };
-          });
-          this.totalRecords = data[1];
-          this.loading = false;
+        .then((response) => {
+          if (response.status === 200) {
+            response.json().then((data) => {
+              //here im just assigning the array of users that we got from the backend into 'this.users', but also im using array.map on that array so that I can overwrite the creationDate property of each user (to re-format it into dd-MM-yyyy format)
+              this.users = data[0].map((element) => {
+                return {
+                  ...element,
+                  creationDate:
+                    element.creationDate.substring(8, 10) +
+                    "-" +
+                    element.creationDate.substring(5, 7) +
+                    "-" +
+                    element.creationDate.substring(0, 4),
+                };
+              });
+              this.totalRecords = data[1];
+              this.loading = false;
+            });
+          } else {
+            this.serverError = true;
+            this.serverErrorMsg =
+              "Unable to load user records - an error occured during server communication.";
+          }
+        })
+        .catch(() => {
+          this.serverError = true;
+          this.serverErrorMsg =
+            "Unable to load user records - server is not responding.";
         });
     },
     onPage(event) {
       this.lazyParams = {
         first: event.first,
         rows: 10,
-        filters: this.confirmedFilters, //TODO ON BACKEND
+        filters: this.confirmedFilters,
         sortField: this.sortField,
         sortOrder: this.sortOrder,
       };
@@ -326,26 +316,15 @@ export default {
         this.sortOrder = null;
         this.lazyLoadFirstPage();
       }
-      //set this.sortfield and this.sortorder according to what happened in the event, what the user did/selected
-
-      this.lazyParams = {
-        first: 0,
-        rows: 10,
-        filters: this.confirmedFilters,
-        sortField: this.sortField,
-        sortOrder: this.sortOrder,
-      };
-      this.loadLazyData();
-    },
-    filter() {
-      //ask backend how many totalrecords there are after the filter is applied, assign that to this.totalrecords
     },
     applyFilters() {
+      this.serverError = false;
+      
       this.confirmedFilters.id = this.filterValues.id;
       this.confirmedFilters.firstName = this.filterValues.firstName;
       this.confirmedFilters.surname = this.filterValues.surname;
-      this.confirmedFilters.creationFrom = this.filterValues.creationFrom; //TODO - codemissing
-      this.confirmedFilters.creationTo = this.filterValues.creationTo; //TODO - line not complete
+      this.confirmedFilters.creationFrom = this.filterValues.creationFrom;
+      this.confirmedFilters.creationTo = this.filterValues.creationTo;
       this.filterValues.status === "Any status"
         ? (this.confirmedFilters.status = null)
         : (this.confirmedFilters.status = this.filterValues.status);
@@ -368,25 +347,37 @@ export default {
         first: 0,
         rows: 10,
         filters: this.confirmedFilters,
-        sortField: this.sortField, //TODO date values might need adjusting
-        sortOrder: this.sortOrder, //TOFO
+        sortField: this.sortField,
+        sortOrder: this.sortOrder,
       };
 
       this.loadLazyData();
     },
     flipStatus() {
+      this.serverError = false;
       fetch(
         `http://localhost:8080/user.status?userId=${this.selectedUser.id}`,
         {
           method: "PATCH",
         }
-      ).then((response) => {
-        if (response.status === 200) {
-          this.loadLazyData();
-        }
-      });
+      )
+        .then((response) => {
+          if (response.status === 200) {
+            this.loadLazyData();
+          } else {
+            this.serverError = true;
+            this.serverErrorMsg =
+              "Unable to carry out this action - an error occured during server communication.";
+          }
+        })
+        .catch(() => {
+          this.serverError = true;
+          this.serverErrorMsg =
+            "Unable to carry out this action - server is not responding.";
+        });
     },
     deleteUser(event) {
+      this.serverError = false;
       this.$confirm.require({
         target: event.currentTarget,
         message: `Are you sure you want to delete ${this.selectedUser.firstName} ${this.selectedUser.surname}?`,
@@ -394,11 +385,21 @@ export default {
         accept: () => {
           fetch(`http://localhost:8080/user?userId=${this.selectedUser.id}`, {
             method: "DELETE",
-          }).then((response) => {
-            if (response.status === 200) {
-              this.loadLazyData();
-            }
-          });
+          })
+            .then((response) => {
+              if (response.status === 200) {
+                this.loadLazyData();
+              } else {
+                this.serverError = true;
+                this.serverErrorMsg =
+                  "Unable to carry out this action - an error occured during server communication.";
+              }
+            })
+            .catch(() => {
+              this.serverError = true;
+              this.serverErrorMsg =
+                "Unable to carry out this action - server is not responding.";
+            });
           this.selectedUser = null;
         },
       });
